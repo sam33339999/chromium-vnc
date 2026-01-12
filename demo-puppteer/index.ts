@@ -11,6 +11,7 @@ async function main() {
 
         const page = await browser.newPage();
         await page.goto('https://www.google.com');
+        await page.screenshot({path: 'demo.png'});
         await page.close();
         await browser.close();
     } catch (e) {

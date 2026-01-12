@@ -72,54 +72,66 @@ vncserver :1 -geometry 1920x1080 -depth 24 -localhost no\n\
 # 獲取 VNC 進程 PID\n\
 VNC_PID=$(pgrep -f "Xtigervnc :1" | head -1)\n\
 \n\
+echo "==========================================="\n\
+echo "  Chromium Kiosk Mode + VNC + CDP"\n\
+echo "==========================================="\n\
 echo "VNC Server 已啟動在 port 5901 (PID: $VNC_PID)"\n\
 echo "預設密碼: password"\n\
+echo ""\n\
 \n\
 # 等待 VNC 啟動完成\n\
 sleep 2\n\
 \n\
-# 設定 DISPLAY 並啟動 Chromium with CDP\n\
+# 設定 DISPLAY\n\
 export DISPLAY=:1\n\
-chromium-cdp &\n\
-CHROMIUM_PID=$!\n\
 \n\
-# 等待 Chrome 啟動\n\
-sleep 3\n\
-\n\
-# 使用 socat 轉發 CDP 連線到 0.0.0.0\n\
+# 啟動 socat 轉發 CDP\n\
 socat TCP-LISTEN:9223,fork,reuseaddr TCP:127.0.0.1:9222 &\n\
 SOCAT_PID=$!\n\
 \n\
-echo ""\n\
-echo "Chrome DevTools Protocol 已啟動 (PID: $CHROMIUM_PID)"\n\
-echo "WebSocket (internal): ws://127.0.0.1:9222"\n\
-echo "WebSocket (external): ws://your-ip:9223"\n\
-echo "HTTP: http://your-ip:9223/json"\n\
-echo ""\n\
-echo "監控進程: VNC($VNC_PID), Chromium($CHROMIUM_PID), socat($SOCAT_PID)"\n\
-echo "當 Chromium 或 VNC 關閉時，容器將自動停止"\n\
-\n\
-# 監控關鍵進程，任一退出則關閉容器\n\
+# Chromium Kiosk 主循環（自動重啟）\n\
 while true; do\n\
-    # 檢查 Chromium 是否還在運行\n\
-    if ! kill -0 $CHROMIUM_PID 2>/dev/null; then\n\
-        echo "Chromium 已關閉，停止容器..."\n\
-        break\n\
-    fi\n\
+    echo "[$(date +'%H:%M:%S')] 啟動 Chromium Kiosk..."\n\
     \n\
-    # 檢查 VNC 是否還在運行\n\
-    if ! pgrep -f "Xtigervnc :1" >/dev/null 2>&1; then\n\
-        echo "VNC Server 已關閉，停止容器..."\n\
-        break\n\
-    fi\n\
+    chromium-cdp &\n\
+    CHROMIUM_PID=$!\n\
     \n\
+    # 等待 Chrome 啟動\n\
+    sleep 3\n\
+    \n\
+    echo ""\n\
+    echo "Chrome DevTools Protocol 已啟動 (PID: $CHROMIUM_PID)"\n\
+    echo "WebSocket (internal): ws://127.0.0.1:9222"\n\
+    echo "WebSocket (external): ws://your-ip:9223"\n\
+    echo "HTTP: http://your-ip:9223/json"\n\
+    echo ""\n\
+    echo "監控進程: VNC($VNC_PID), Chromium($CHROMIUM_PID), socat($SOCAT_PID)"\n\
+    echo "Kiosk 模式：Chromium 關閉後將自動重啟"\n\
+    echo "==========================================="\n\
+    echo ""\n\
+    \n\
+    # 監控 Chromium 和 VNC\n\
+    while true; do\n\
+        # 檢查 Chromium 是否還在運行\n\
+        if ! kill -0 $CHROMIUM_PID 2>/dev/null; then\n\
+            echo "[$(date +'%H:%M:%S')] Chromium 已關閉，5 秒後重啟..."\n\
+            break\n\
+        fi\n\
+        \n\
+        # 檢查 VNC 是否還在運行\n\
+        if ! pgrep -f "Xtigervnc :1" >/dev/null 2>&1; then\n\
+            echo "[$(date +'%H:%M:%S')] VNC Server 已關閉，停止容器..."\n\
+            kill $CHROMIUM_PID $SOCAT_PID 2>/dev/null\n\
+            exit 0\n\
+        fi\n\
+        \n\
+        sleep 2\n\
+    done\n\
+    \n\
+    # 清理舊的 Chromium 進程\n\
+    pkill chromium 2>/dev/null\n\
     sleep 2\n\
-done\n\
-\n\
-# 清理：關閉所有進程\n\
-kill $CHROMIUM_PID $SOCAT_PID 2>/dev/null\n\
-vncserver -kill :1 2>/dev/null\n\
-echo "容器已停止"' > /start.sh && \
+done' > /start.sh && \
     chmod +x /start.sh
 
 # 設定 Chromium 語系
@@ -127,29 +139,33 @@ RUN mkdir -p /home/user/.config/chromium && \
     echo '{"intl":{"accept_languages":"zh-TW,zh,en-US,en"}}' > /home/user/.config/chromium/Local\ State && \
     chown -R user:user /home/user/.config
 
-# 建立 Chromium 啟動腳本（含 CDP）
+# 建立 Chromium 啟動腳本（含 CDP + Kiosk 模式）
 RUN echo '#!/bin/bash\n\
-chromium \
-    --remote-debugging-port=9222 \
-    --remote-debugging-address=0.0.0.0 \
-    --remote-allow-origins=* \
-    --no-sandbox \
-    --disable-gpu \
-    --disable-dev-shm-usage \
-    --no-first-run \
-    --no-default-browser-check \
-    --disable-background-networking \
-    --disable-client-side-phishing-detection \
-    --disable-default-apps \
-    --disable-extensions \
-    --disable-hang-monitor \
-    --disable-popup-blocking \
-    --disable-prompt-on-repost \
-    --disable-sync \
-    --disable-translate \
-    --metrics-recording-only \
-    --safebrowsing-disable-auto-update \
-    --lang=zh-TW \
+chromium \\\n\
+    --kiosk \\\n\
+    --remote-debugging-port=9222 \\\n\
+    --remote-debugging-address=0.0.0.0 \\\n\
+    --remote-allow-origins=* \\\n\
+    --no-sandbox \\\n\
+    --disable-gpu \\\n\
+    --disable-dev-shm-usage \\\n\
+    --no-first-run \\\n\
+    --no-default-browser-check \\\n\
+    --disable-background-networking \\\n\
+    --disable-client-side-phishing-detection \\\n\
+    --disable-default-apps \\\n\
+    --disable-extensions \\\n\
+    --disable-hang-monitor \\\n\
+    --disable-popup-blocking \\\n\
+    --disable-prompt-on-repost \\\n\
+    --disable-sync \\\n\
+    --disable-translate \\\n\
+    --disable-infobars \\\n\
+    --disable-session-crashed-bubble \\\n\
+    --disable-close-button-with-two-fingers-on-trackpad \\\n\
+    --metrics-recording-only \\\n\
+    --safebrowsing-disable-auto-update \\\n\
+    --lang=zh-TW \\\n\
     "$@"' > /usr/local/bin/chromium-cdp && \
     chmod +x /usr/local/bin/chromium-cdp
 

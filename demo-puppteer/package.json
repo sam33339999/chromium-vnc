@@ -1,0 +1,15 @@
+{
+  "name": "demo-puppteer",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.35.0"
+  }
+}

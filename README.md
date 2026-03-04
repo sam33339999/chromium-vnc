@@ -1,13 +1,16 @@
 # Chromium Kiosk + VNC Docker 環境（繁體中文 + CDP）
 
+- ref: [developer.chrome - cdp](https://developer.chrome.com/docs/devtools/remote-debugging/local-server?hl=zh-tw)
+- [wiki for agent-browser with this repo](https://github.com/sam33339999/chromium-vnc/wiki/agent%E2%80%90browser)
+
 ## 功能特點
 
-- ✅ **Chromium Kiosk 模式** - 全屏顯示，適合數位看板與自動化展示
-- ✅ **自動重啟機制** - Chromium 關閉後自動重啟，確保服務持續運行
-- ✅ **Chrome DevTools Protocol (CDP)** - 支援 Playwright/Puppeteer 自動化
-- ✅ **VNC 遠端桌面** - 可遠程查看與管理（TigerVNC + XFCE4）
-- ✅ **繁體中文支援** - 完整中文字體與輸入法
-- ✅ **進程監控** - VNC 關閉時自動停止容器
+- **Chromium Kiosk 模式** - 全屏顯示，適合數位看板與自動化展示
+- **自動重啟機制** - Chromium 關閉後自動重啟，確保服務持續運行
+- **Chrome DevTools Protocol (CDP)** - 支援 Playwright/Puppeteer 自動化
+- **VNC 遠端桌面** - 可遠程查看與管理（TigerVNC + XFCE4）
+- **繁體中文支援** - 完整中文字體與輸入法
+- **進程監控** - VNC 關閉時自動停止容器
 
 
 ## 使用 Chrome 驗證連線到遠端瀏覽器方法.
